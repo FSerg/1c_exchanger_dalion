@@ -7,6 +7,7 @@ import DocsReceiptsShop from "../models/DocsReceiptsShop";
 import DocsSaleShop from "../models/DocsSaleShop";
 import DocsRevaluationShop from "../models/DocsRevaluationShop";
 import DocsResortingShop from "../models/DocsResortingShop";
+import DocsPostingShop from "../models/DocsPostingShop";
 
 const router = express.Router();
 
@@ -278,6 +279,58 @@ router.get("/resortings", bearer, (req, res) => {
     .group({ originalId: { $first: "$_id" }, _id: "$id_doc" })
     .lookup({
       from: "docsresortingshops",
+      localField: "originalId",
+      foreignField: "_id",
+      as: "original_doc"
+    })
+    .project({ "original_doc.positions": 0 })
+    .exec((err, results) => {
+      if (err) {
+        console.error(err);
+        res.status(400).send({ result: err });
+      } else {
+        res.status(200).send({
+          result: results.map(item => item.original_doc[0])
+        });
+      }
+    });
+});
+
+router.post("/postings", bearer, (req, res) => {
+  //console.log("Postings from 1C:");
+  //console.log(req.body);
+
+  const newPostingDoc = new DocsPostingShop(req.body);
+  newPostingDoc.save(err => {
+    if (err) {
+      console.error(err);
+      res.status(400).send({ result: "error" });
+    } else {
+      console.log("Postings DONE!");
+      res.status(200).send({ result: "success" });
+    }
+  });
+});
+
+router.get("/postings", bearer, (req, res) => {
+  console.log("GET Postings!");
+  console.log(req.query);
+
+  if (req.query === undefined) {
+    const errorMessage = "Empty query to get Postings from Shop!";
+    console.error(errorMessage);
+    res.status(400).send({ result: errorMessage });
+  }
+
+  const data1 = new Date(req.query.date_begin);
+  const data2 = new Date(req.query.date_end);
+
+  DocsPostingShop.aggregate()
+    .match({ date: { $gte: data1, $lt: data2 } })
+    .sort({ moment_of_changes: -1 })
+    .group({ originalId: { $first: "$_id" }, _id: "$id_doc" })
+    .lookup({
+      from: "docspostingshops",
       localField: "originalId",
       foreignField: "_id",
       as: "original_doc"
