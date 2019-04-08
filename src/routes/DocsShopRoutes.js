@@ -8,6 +8,7 @@ import DocsSaleShop from "../models/DocsSaleShop";
 import DocsRevaluationShop from "../models/DocsRevaluationShop";
 import DocsResortingShop from "../models/DocsResortingShop";
 import DocsPostingShop from "../models/DocsPostingShop";
+import DocsMovingShop from "../models/DocsMovingShop";
 
 const router = express.Router();
 
@@ -331,6 +332,58 @@ router.get("/postings", bearer, (req, res) => {
     .group({ originalId: { $first: "$_id" }, _id: "$id_doc" })
     .lookup({
       from: "docspostingshops",
+      localField: "originalId",
+      foreignField: "_id",
+      as: "original_doc"
+    })
+    .project({ "original_doc.positions": 0 })
+    .exec((err, results) => {
+      if (err) {
+        console.error(err);
+        res.status(400).send({ result: err });
+      } else {
+        res.status(200).send({
+          result: results.map(item => item.original_doc[0])
+        });
+      }
+    });
+});
+
+router.post("/movings", bearer, (req, res) => {
+  //console.log("Movings from 1C:");
+  //console.log(req.body);
+
+  const newMovingDoc = new DocsMovingShop(req.body);
+  newMovingDoc.save(err => {
+    if (err) {
+      console.error(err);
+      res.status(400).send({ result: "error" });
+    } else {
+      console.log("Movings DONE!");
+      res.status(200).send({ result: "success" });
+    }
+  });
+});
+
+router.get("/movings", bearer, (req, res) => {
+  console.log("GET Movings!");
+  console.log(req.query);
+
+  if (req.query === undefined) {
+    const errorMessage = "Empty query to get Movings from Shop!";
+    console.error(errorMessage);
+    res.status(400).send({ result: errorMessage });
+  }
+
+  const data1 = new Date(req.query.date_begin);
+  const data2 = new Date(req.query.date_end);
+
+  DocsMovingShop.aggregate()
+    .match({ date: { $gte: data1, $lt: data2 } })
+    .sort({ moment_of_changes: -1 })
+    .group({ originalId: { $first: "$_id" }, _id: "$id_doc" })
+    .lookup({
+      from: "docsmovingshops",
       localField: "originalId",
       foreignField: "_id",
       as: "original_doc"
