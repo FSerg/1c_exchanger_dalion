@@ -9,6 +9,9 @@ import DocsRevaluationShop from "../models/DocsRevaluationShop";
 import DocsResortingShop from "../models/DocsResortingShop";
 import DocsPostingShop from "../models/DocsPostingShop";
 
+import DocsWriteOffShop from "../models/DocsWriteOffShop";
+import DocsInventoryShop from "../models/DocsInventoryShop";
+
 const router = express.Router();
 
 router.post("/invoices", bearer, (req, res) => {
@@ -331,6 +334,110 @@ router.get("/postings", bearer, (req, res) => {
     .group({ originalId: { $first: "$_id" }, _id: "$id_doc" })
     .lookup({
       from: "docspostingshops",
+      localField: "originalId",
+      foreignField: "_id",
+      as: "original_doc"
+    })
+    .project({ "original_doc.positions": 0 })
+    .exec((err, results) => {
+      if (err) {
+        console.error(err);
+        res.status(400).send({ result: err });
+      } else {
+        res.status(200).send({
+          result: results.map(item => item.original_doc[0])
+        });
+      }
+    });
+});
+
+router.post("/write_off", bearer, (req, res) => {
+  console.log("write_off from 1C:");
+  console.log(req.body);
+
+  const newWriteOffDoc = new DocsWriteOffShop(req.body);
+  newWriteOffDoc.save(err => {
+    if (err) {
+      console.error(err);
+      res.status(400).send({ result: "error" });
+    } else {
+      console.log("write_off DONE!");
+      res.status(200).send({ result: "success" });
+    }
+  });
+});
+
+router.get("/write_off", bearer, (req, res) => {
+  console.log("GET write_off!");
+  console.log(req.query);
+
+  if (req.query === undefined) {
+    const errorMessage = "Empty query to get write_offs from Shop!";
+    console.error(errorMessage);
+    res.status(400).send({ result: errorMessage });
+  }
+
+  const data1 = new Date(req.query.date_begin);
+  const data2 = new Date(req.query.date_end);
+
+  DocsWriteOffShop.aggregate()
+    .match({ date: { $gte: data1, $lte: data2 } })
+    .sort({ moment_of_changes: -1 })
+    .group({ originalId: { $first: "$_id" }, _id: "$id_doc" })
+    .lookup({
+      from: "docswriteoffshops",
+      localField: "originalId",
+      foreignField: "_id",
+      as: "original_doc"
+    })
+    .project({ "original_doc.positions": 0 })
+    .exec((err, results) => {
+      if (err) {
+        console.error(err);
+        res.status(400).send({ result: err });
+      } else {
+        res.status(200).send({
+          result: results.map(item => item.original_doc[0])
+        });
+      }
+    });
+});
+
+router.post("/inventory", bearer, (req, res) => {
+  console.log("inventory from 1C:");
+  console.log(req.body);
+
+  const newInventoryDoc = new DocsInventoryShop(req.body);
+  newInventoryDoc.save(err => {
+    if (err) {
+      console.error(err);
+      res.status(400).send({ result: "error" });
+    } else {
+      console.log("inventory DONE!");
+      res.status(200).send({ result: "success" });
+    }
+  });
+});
+
+router.get("/inventory", bearer, (req, res) => {
+  console.log("GET inventory!");
+  console.log(req.query);
+
+  if (req.query === undefined) {
+    const errorMessage = "Empty query to get inventorys from Shop!";
+    console.error(errorMessage);
+    res.status(400).send({ result: errorMessage });
+  }
+
+  const data1 = new Date(req.query.date_begin);
+  const data2 = new Date(req.query.date_end);
+
+  DocsInventoryShop.aggregate()
+    .match({ date: { $gte: data1, $lte: data2 } })
+    .sort({ moment_of_changes: -1 })
+    .group({ originalId: { $first: "$_id" }, _id: "$id_doc" })
+    .lookup({
+      from: "docsinventoryshops",
       localField: "originalId",
       foreignField: "_id",
       as: "original_doc"
